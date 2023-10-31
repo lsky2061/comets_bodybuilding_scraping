@@ -26,18 +26,18 @@ dag = DAG(
     schedule_interval=None,
 )
 
-run_url_scrape = PythonOperator(
-    task_id="url_scrape",
-    python_callable=get_urls,
-    op_kwargs={"scrape_date": date.today()},
-    dag=dag,
-)
+# run_url_scrape = PythonOperator(
+#     task_id="url_scrape",
+#     python_callable=get_urls,
+#     op_kwargs={"scrape_date": date.today()},
+#     dag=dag,
+# )
 
-run_contest_results_scrape = PythonOperator(
-    task_id="contest_results_scrape",
-    python_callable=get_contest_data,
-    dag=dag,
-)
+# run_contest_results_scrape = PythonOperator(
+#     task_id="contest_results_scrape",
+#     python_callable=get_contest_data,
+#     dag=dag,
+# )
 
 run_scorecard_url_scrape = PythonOperator(
     task_id="scorecard_url_scrape",
@@ -45,13 +45,5 @@ run_scorecard_url_scrape = PythonOperator(
     dag=dag,
 )
 
-# run_scorecard_ocr = PythonOperator(
-#     task_id="scorecard_ocr",
-#     python_callable=scorecards_ocr,
-#     dag=dag,
-# )
-
-(run_url_scrape >> run_contest_results_scrape)
-(run_url_scrape >> run_scorecard_url_scrape)
-# (run_scorecard_url_scrape >> run_scorecard_ocr)
-# (run_contest_results_scrape >> run_scorecard_ocr)
+# run_url_scrape >> run_contest_results_scrape
+run_scorecard_url_scrape

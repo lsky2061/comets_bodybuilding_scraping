@@ -1,0 +1,4 @@
+opencv-python-headless==4.8.0.76
+pytesseract==0.3.10
+keras-ocr==0.8.9
+tensorflow==2.13.0

@@ -32,14 +32,15 @@ def get_contest_data():
                 (
                     contest_url TEXT,
                     competitor_name TEXT,
+                    competitor_url TEXT,
                     organization TEXT,
                     contest_name TEXT,
-                    contest_location TEXT,
                     contest_date DATE,
                     division TEXT,
                     class TEXT,
                     "placing" SMALLINT,
-                    scraped_timestamp TIMESTAMP
+                    scraped_timestamp TIMESTAMP,
+                    is_loaded BOOLEAN
                 )
                 """
             )
@@ -96,6 +97,10 @@ def get_contest_data():
 
                         # Get name that appears after placing
                         competitor_name = person.text[len(placing) :]
+
+                        # Get competitor's profile page
+                        competitor_url = person["href"]
+
                         try:
                             # Competitors that competed
                             placing = int(placing)
@@ -110,29 +115,30 @@ def get_contest_data():
                                 (
                                     contest_url,
                                     competitor_name,
+                                    competitor_url,
                                     organization,
                                     contest_name,
-                                    contest_location,
                                     contest_date,
                                     division,
                                     class,
                                     "placing",
-                                    scraped_timestamp
-
+                                    scraped_timestamp,
+                                    is_loaded
                                 )
                                 VALUES
                                 (
-                                    %s, %s, %s, %s, NULL, %s, %s, %s, %s, NOW()
+                                    %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), False
                                 )
                                 """,
                                 (
                                     url,
-                                    competitor_name.lower(),
-                                    contest_org.lower(),
-                                    contest_name.lower(),
+                                    competitor_name.strip().lower(),
+                                    competitor_url.strip().lower(),
+                                    contest_org.strip().lower(),
+                                    contest_name.strip().lower(),
                                     contest_date,
-                                    division.text.lower(),
-                                    class_text.lower(),
+                                    division.text.strip().lower(),
+                                    class_text.strip().lower(),
                                     placing,
                                 ),
                             )

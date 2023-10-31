@@ -6,5 +6,9 @@ COPY requirements.txt /
 # Install Python packages from requirements.txt
 RUN pip install --no-cache-dir "apache-airflow==${AIRFLOW_VERSION}" -r /requirements.txt
 
+USER root
+
 # Install tesseract-ocr
 RUN apt-get update && apt-get -y install tesseract-ocr
+
+USER airflow

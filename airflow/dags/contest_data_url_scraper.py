@@ -12,9 +12,7 @@ def create_table(conn):
             (
                 url TEXT PRIMARY KEY,
                 retrieved_timestamp TIMESTAMP,
-                results_are_scraped BOOLEAN,
-                scorecards_exist BOOLEAN,
-                scorecards_are_scraped BOOLEAN
+                results_are_scraped BOOLEAN
             )
             """
         )
@@ -45,17 +43,6 @@ def get_years_to_scrape(conn, kwargs):
     years = [str(year) for year in range(last_year_scraped, scrape_date.year + 1)]
     return years
 
-def insert_into_table(conn, scorecard_url):
-    with conn.cursor() as curs:
-        curs.execute(
-            """
-            UPDATE contest_urls
-            SET scorecards_exist = False
-            WHERE url=%s
-            """,
-            (url_temp,),
-        )
-        conn.commit()
 
 def get_contest_urls(year, org):
     # Use with to close connection after response
@@ -95,16 +82,14 @@ def insert_into_table(conn, contest_url):
             (
                 url,
                 retrieved_timestamp,
-                results_are_scraped,
-                scorecards_exist,
-                scorecards_are_scraped
+                results_are_scraped
             )
             VALUES
             (
-                %s, NOW(), %s, %s, %s
+                %s, NOW(), %s
             )
             """,
-            (contest_url, False, True, False),
+            (contest_url, False),
         )
         conn.commit()
 

@@ -4,6 +4,7 @@ import requests
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 import time
+from datetime import datetime
 import numpy as np
 
 
@@ -14,106 +15,125 @@ def create_table(conn):
             """
             CREATE TABLE IF NOT EXISTS contest_scorecard_urls
             (
-                contest_url TEXT,
+                contest_scorecards_url TEXT,
+                contest_name TEXT,
+                post_date TIMESTAMP,
                 scorecard_url TEXT,
                 scraped_timestamp TIMESTAMP,
-                ocr_is_complete BOOLEAN
+                is_loaded BOOLEAN
             )
             """
         )
         conn.commit()
 
 
-def get_new_contest_urls(conn):
+def get_last_scraped_post_date(conn):
+    # Getting post date of most recently scraped scorecards
     with conn.cursor() as curs:
         curs.execute(
             """
-            SELECT url
-            FROM contest_urls
-            WHERE contest_urls.scorecards_are_scraped = False
-                AND contest_urls.scorecards_exist = True
+            SELECT MAX(post_date)
+            FROM contest_scorecard_urls
             """
         )
-        url_list = curs.fetchall()
-    return url_list
+        last_scraped_post_date = curs.fetchone()[0]
+    if last_scraped_post_date:
+        return datetime.fromtimestamp(last_scraped_post_date)
+    else:
+        return datetime.strptime("1000-01-01", "%Y-%m-%d").date()
 
 
-def get_contest_and_year(contest_url):
-    url_temp = contest_url[0]
-    contest = url_temp.split("/")[-1].replace("_", "-")
-    year = url_temp.split("/")[-2]
-    return contest, year
-
-
-def get_scorecard_page_html(contest, year):
-    scorecard_url = (
-        "https://npcnewsonline.com/" + year + "-" + contest + "-official-score-cards"
-    )
+def get_scorecard_list(page_url=None, page_number=None):
     headers = {
-        "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.111 Safari/537.36"
+        "Connection": "keep-alive",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.121 Safari/537.36",
     }
-
+    if page_number:
+        page_url = (
+            "https://npcnewsonline.com/category/contest-scorecards/page/"
+            + f"{page_number}"
+        )
+    print(page_url)
     # Use with to close connection after response
-    with requests.get(scorecard_url, headers=headers) as response:
+    with requests.get(
+        page_url,
+        headers=headers,
+    ) as response:
         time.sleep(1.0 + np.random.uniform(0, 1))
         content = response.content
 
     # Get HTML content
     parser = BeautifulSoup(content, "html.parser")
-    return parser
+    print(parser)
+    main_content = parser.find("main")
+    if main_content:
+        posts = main_content.find_all("a", {"rel": "bookmark"})
+        return posts
+    else:
+        return None
 
 
-def update_scrape_status(conn, contest_url):
-    with conn.cursor() as curs:
-        curs.execute(
-            """
-            UPDATE contest_urls
-            SET scorecards_exist = True
-                AND scorecards_are_scraped=True
-            WHERE url=%s
-            """,
-            (contest_url,),
-        )
-        conn.commit()
+def get_post_dates(posts):
+    post_dates = [post.find("time").text for post in posts]
+    formatted_post_dates = [
+        datetime.strptime(post_date, "%B %d, %Y").date() for post_date in post_dates
+    ]
+    return formatted_post_dates
 
 
-def update_scorecard_exist_status(conn, contest_url):
-    with conn.cursor() as curs:
-        curs.execute(
-            """
-            UPDATE contest_urls
-            SET scorecards_exist = False
-            WHERE url=%s
-            """,
-            (contest_url,),
-        )
-        conn.commit()
+def get_scorecard_page_urls(posts):
+    contest_scorecard_page_urls = [post["href"] for post in posts]
+    return contest_scorecard_page_urls
+
+
+def get_contest_scorecard_page_content(contest_scorecards_url):
+    with requests.get(contest_scorecards_url) as response:
+        time.sleep(1.0 + np.random.uniform(0, 1))
+        content = response.content
+
+    # Get HTML content
+    parser = BeautifulSoup(content, "html.parser")
+    main_content = parser.find("main")
+    return main_content
+
+
+def get_contest_name(main_content):
+    contest_name_temp = main_content.find("h1", class_="entry-title").text
+    contest_name_temp = contest_name_temp.split("Official")[0]
+    contest_name_temp = contest_name_temp.split("Day")[0]
+    contest_name = contest_name_temp.split("Score")[0]
+    return contest_name.strip().lower()
 
 
 def get_image_urls(main_content):
+    entry_content = main_content.find("div", class_="entry-content")
     # Find scorecard img urls in a href or img tags
-    scorecard_image_urls = [tag.get("data-src") for tag in main_content.find_all("img")]
+    scorecard_image_urls = [
+        tag.get("data-src") for tag in entry_content.find_all("img")
+    ]
     return scorecard_image_urls
 
 
-def insert_image_url(conn, contest_url, image_url):
+def insert_image_url(conn, contest_url, contest_name, post_date, image_url):
     # Add row to table with image url
     with conn.cursor() as curs:
         curs.execute(
             """
             INSERT INTO contest_scorecard_urls
             (
-                contest_url,
+                contest_scorecards_url,
+                contest_name,
+                post_date,
                 scorecard_url,
                 scraped_timestamp,
-                ocr_is_complete
+                is_loaded
             )
             VALUES
             (
-                %s, %s, NOW(), False
+                %s, %s, %s, %s, NOW(), False
             )
             """,
-            (contest_url, image_url),
+            (contest_url, contest_name, post_date, image_url),
         )
         conn.commit()
 
@@ -132,38 +152,40 @@ def get_scorecard_urls():
         # Create table if it doesn't exist
         create_table(conn)
 
-        # Get new contest URLs from Postgres
-        contest_urls = get_new_contest_urls(conn)
+        # Get post date of last scraped scorecard page
+        last_scraped_post_date = get_last_scraped_post_date(conn)
 
-        count = 0
+        scorecard_posts = get_scorecard_list(
+            page_url="https://npcnewsonline.com/category/contest-scorecards"
+        )
+        contest_scorecard_urls = get_scorecard_page_urls(scorecard_posts)
+        contest_scorecard_dates = get_post_dates(scorecard_posts)
+
+        page_number = 2
+
+        while contest_scorecard_dates[-1] >= last_scraped_post_date:
+            page_number += 1
+            scorecard_posts = get_scorecard_list(page_number=page_number)
+            if scorecard_posts:
+                contest_scorecard_urls += get_scorecard_page_urls(scorecard_posts)
+                contest_scorecard_dates += get_post_dates(scorecard_posts)
+            else:
+                break
+
         # Scorecard URL based on contest URL
-        for contest_url in contest_urls:
-            contest, year = get_contest_and_year(contest_url)
-            # Scorecards were posted starting in 2015
-            if int(year) < 2015:
-                continue
-            parser = get_scorecard_page_html(contest, year)
-
-            # Get main content section from scorecard page
-            main_content = parser.find("div", class_="entry-content")
-
+        for idx, contest_url in enumerate(contest_scorecard_urls):
+            post_date = contest_scorecard_dates[idx]
+            # Get main content of contest scorecard page
+            main_content = get_contest_scorecard_page_content(contest_url)
+            contest_name = get_contest_name(main_content)
             # Main content section exists if scorecards exist
             if main_content:
                 scorecard_image_urls = get_image_urls(main_content)
+                print("Inserting images for " + contest_name)
                 for image_url in scorecard_image_urls:
-                    insert_image_url(conn, contest_url, image_url)
-
-                count += 1
-
-                # Update scrape status even if no scorecards found
-                update_scrape_status(conn, contest_url)
-
-            # If scorecards don't exist update Postgres table
-            else:
-                print("Scorecards do not exist for", contest_url)
-                update_scorecard_exist_status(conn, contest_url)
-
-        print(count, "contests of", len(contest_urls), "have scorecards")
+                    insert_image_url(
+                        conn, contest_url, contest_name, post_date, image_url
+                    )
 
     finally:
         conn.close()
