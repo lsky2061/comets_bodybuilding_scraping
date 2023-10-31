@@ -1,0 +1,17 @@
+# Ignore environment-specific configurations
+.venv/
+
+# Ignore scratch files
+scratch/
+
+# Ignore log files
+airflow/logs
+
+# Ignore airflow-compiled files
+airflow/dags/__pycache__/
+
+# Ignore postgres data directory
+postgres-db-volume/
+
+# Ignore DS_Store
+.DS_Store

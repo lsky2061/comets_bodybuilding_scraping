@@ -1,0 +1,25 @@
+# Use your existing Airflow image as the base image
+FROM apache/airflow:2.7.1
+
+USER root
+
+COPY requirements.txt /
+
+# Update the package list and install Tesseract and its dependencies
+RUN apt-get update && \
+    apt-get install -y tesseract-ocr && \
+    apt-get install -y libgl1-mesa-glx
+
+USER airflow
+    
+RUN pip install --no-cache-dir "apache-airflow==${AIRFLOW_VERSION}" -r /requirements.txt
+
+USER root
+
+# Clean up to reduce the image size
+RUN apt-get clean
+
+USER airflow
+
+# Set the default command to run when the container starts
+CMD ["/bin/bash"]
