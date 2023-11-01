@@ -256,10 +256,6 @@ services:
       - bash
       - -c
       - airflow
-  
-  playwright:
-    container_name: playwright_python
-    image: mcr.microsoft.com/playwright/python:v1.39.0-jammy
 
 volumes:
   postgres-db-volume:
