@@ -1,7 +1,8 @@
 import psycopg2
 from bs4 import BeautifulSoup
 import requests
-from requests.adapters import HTTPAdapter
+from playwright.async_api import async_playwright
+import asyncio
 from requests.packages.urllib3.util.retry import Retry
 import time
 from datetime import datetime
@@ -43,31 +44,25 @@ def get_last_scraped_post_date(conn):
         return datetime.strptime("1000-01-01", "%Y-%m-%d").date()
 
 
-def get_scorecard_list(page_url=None, page_number=None):
-    headers = {
-        "Connection": "keep-alive",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.121 Safari/537.36",
-    }
-    if page_number:
-        page_url = (
-            "https://npcnewsonline.com/category/contest-scorecards/page/"
-            + f"{page_number}"
-        )
-    print(page_url)
-    # Use with to close connection after response
-    with requests.get(
-        page_url,
-        headers=headers,
-    ) as response:
+async def get_scorecard_list(page_number=None):
+    page_url = (
+        "https://npcnewsonline.com/category/contest-scorecards/page/" + f"{page_number}"
+    )
+    async with async_playwright() as playwright:
+        browser = await playwright.chromium.launch(headless=True)
+        page = await browser.new_page()
+        await page.goto(page_url)
         time.sleep(1.0 + np.random.uniform(0, 1))
-        content = response.content
-
+        content = await page.content()
+        await browser.close()
     # Get HTML content
-    parser = BeautifulSoup(content, "html.parser")
-    print(parser)
+    parser = BeautifulSoup(content)
+
+    # Get main section content
     main_content = parser.find("main")
     if main_content:
         posts = main_content.find_all("a", {"rel": "bookmark"})
+        print(posts)
         return posts
     else:
         return None
@@ -154,18 +149,14 @@ def get_scorecard_urls():
 
         # Get post date of last scraped scorecard page
         last_scraped_post_date = get_last_scraped_post_date(conn)
-
-        scorecard_posts = get_scorecard_list(
-            page_url="https://npcnewsonline.com/category/contest-scorecards"
-        )
+        page_number = 1
+        scorecard_posts = asyncio.run(get_scorecard_list(page_number))
         contest_scorecard_urls = get_scorecard_page_urls(scorecard_posts)
         contest_scorecard_dates = get_post_dates(scorecard_posts)
 
-        page_number = 2
-
         while contest_scorecard_dates[-1] >= last_scraped_post_date:
             page_number += 1
-            scorecard_posts = get_scorecard_list(page_number=page_number)
+            scorecard_posts = asyncio.run(get_scorecard_list(page_number))
             if scorecard_posts:
                 contest_scorecard_urls += get_scorecard_page_urls(scorecard_posts)
                 contest_scorecard_dates += get_post_dates(scorecard_posts)
