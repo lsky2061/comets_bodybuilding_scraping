@@ -39,7 +39,7 @@ def get_last_scraped_post_date(conn):
         )
         last_scraped_post_date = curs.fetchone()[0]
     if last_scraped_post_date:
-        return datetime.fromtimestamp(last_scraped_post_date)
+        return last_scraped_post_date.date()
     else:
         return datetime.strptime("1000-01-01", "%Y-%m-%d").date()
 
@@ -62,7 +62,6 @@ async def get_scorecard_list(page_number=None):
     main_content = parser.find("main")
     if main_content:
         posts = main_content.find_all("a", {"rel": "bookmark"})
-        print(posts)
         return posts
     else:
         return None
@@ -93,10 +92,7 @@ def get_contest_scorecard_page_content(contest_scorecards_url):
 
 
 def get_contest_name(main_content):
-    contest_name_temp = main_content.find("h1", class_="entry-title").text
-    contest_name_temp = contest_name_temp.split("Official")[0]
-    contest_name_temp = contest_name_temp.split("Day")[0]
-    contest_name = contest_name_temp.split("Score")[0]
+    contest_name = main_content.find("h1", class_="entry-title").text
     return contest_name.strip().lower()
 
 

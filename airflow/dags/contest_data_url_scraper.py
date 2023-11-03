@@ -1,6 +1,7 @@
 import psycopg2
 from bs4 import BeautifulSoup
 import requests
+import itertools
 
 
 def create_table(conn):
@@ -24,7 +25,7 @@ def get_years_to_scrape(conn, kwargs):
         # Find the year of most recent scrape
         curs.execute(
             """
-            SELECT MAX(EXTRACT(YEAR FROM retrieved_timestamp))
+            SELECT MAX(substring(url,'.*/contests/([0-9]{4}).*'))
             FROM contest_urls
             """
         )
@@ -118,7 +119,7 @@ def get_urls(**kwargs):
         contest_urls = []
 
         # Pages with contest URLs are by org and year
-        for org, year in zip(organizations, years_to_scrape):
+        for org, year in itertools.product(organizations, years_to_scrape):
             # Add contest URLs on page to contest_urls list
             contest_urls += get_contest_urls(year, org)
 

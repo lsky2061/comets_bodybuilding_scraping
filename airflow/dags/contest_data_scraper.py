@@ -99,7 +99,9 @@ def get_contest_data():
                         competitor_name = person.text[len(placing) :]
 
                         # Get competitor's profile page
-                        competitor_url = person["href"]
+                        competitor_url = person["href"].strip().lower()
+                        if competitor_url[:6] != "https//":
+                            competitor_url = None
 
                         try:
                             # Competitors that competed
@@ -133,7 +135,7 @@ def get_contest_data():
                                 (
                                     url,
                                     competitor_name.strip().lower(),
-                                    competitor_url.strip().lower(),
+                                    competitor_url,
                                     contest_org.strip().lower(),
                                     contest_name.strip().lower(),
                                     contest_date,
