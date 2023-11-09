@@ -4,3 +4,4 @@
 # tensorflow==2.13.0
 # selenium==4.14.0
 playwright==1.39.0
+apache-airflow-providers-google==10.11.0

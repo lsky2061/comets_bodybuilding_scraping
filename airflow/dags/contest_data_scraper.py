@@ -100,7 +100,7 @@ def get_contest_data():
 
                         # Get competitor's profile page
                         competitor_url = person["href"].strip().lower()
-                        if competitor_url[:6] != "https//":
+                        if competitor_url[:8] != "https://":
                             competitor_url = None
 
                         try:

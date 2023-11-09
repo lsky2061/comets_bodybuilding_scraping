@@ -1,6 +1,9 @@
 # Ignore environment-specific configurations
 .venv/
 
+# Ignore key folder
+airflow/gcs/
+
 # Ignore scratch files
 scratch/
 
