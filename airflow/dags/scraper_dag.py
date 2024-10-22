@@ -25,7 +25,7 @@ default_args = {
 }
 
 dag = DAG(
-    "scraper_dag",
+    dag_id="scraper_dag",
     default_args=default_args,
     description="Scrapes new contest URLs and contest results daily from NPC News Online.",
     schedule_interval=None,
